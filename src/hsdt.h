@@ -63,7 +63,7 @@ typedef enum {
   HSDT_ERR_UTF8, /* An utf8 string conains invalid data */
   HSDT_ERR_INVALID_NAN, /* A float is an NaN value other than 0xf97e00 */
   HSDT_ERR_DUPLICATE_KEY, /* A map contains the same key multiple times */
-  HSDT_ERR_CANONIC_LENGTH, /* The length of a collection or array is not given int the canoical format */
+  HSDT_ERR_CANONIC_LENGTH, /* The length of a collection or array is not given int the canonical format */
   HSDT_ERR_CANONIC_ORDER /* The keys of a map are not sorted correctly */
 } HSDT_ERR;
 
