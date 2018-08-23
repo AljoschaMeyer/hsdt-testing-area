@@ -24,11 +24,6 @@ typedef enum {
   HSDT_FP,
   HSDT_ARRAY,
   HSDT_MAP
-
-#ifdef HSDT_HOMOGENOUS_ARRAYS
-  ,HSDT_ARRAY_HOM
-#endif
-
 } HSDT_TYPE_TAG;
 
 typedef struct HSDT_Value HSDT_Value;
