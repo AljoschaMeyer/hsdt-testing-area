@@ -1,0 +1,5 @@
+.ninja_log
+.ninja_deps
+compile_commands.json
+build
+vgcore.*

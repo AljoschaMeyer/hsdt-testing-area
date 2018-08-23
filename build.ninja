@@ -1,0 +1,19 @@
+builddir = build
+
+cflags = -g -I src -Werror -Wall -Wextra -std=c11 -pedantic -Wno-unused-value -Wno-unused-function
+
+rule cc
+  depfile = $out.d
+  deps = gcc
+  command = gcc -MMD -MF $out.d -c $cflags $in -o $out
+
+rule ld
+  command = gcc $in -o $out -lm
+
+rule test
+  command = valgrind --quiet --leak-check=yes $in
+
+build $builddir/rax.o: cc deps/rax.c
+build $builddir/sds.o: cc deps/sds.c
+
+build $builddir/hsdt.o: cc src/hsdt.c
