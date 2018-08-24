@@ -68,6 +68,7 @@ typedef enum {
  * and can later be given another buffer to emit more of the bytes.
  */
 typedef struct HSDT_Encoder {
+  /* These are implementation details, feel free to ignore them. */
   bool TODO;
 } HSDT_Encoder;
 
@@ -92,6 +93,7 @@ size_t hsdt_encode(HSDT_Encoder *enc, uint8_t *buf, size_t buf_len);
  * the remaning input.
  */
 typedef struct HSDT_Decoder {
+  /* These are implementation details, feel free to ignore them. */
   bool TODO;
 } HSDT_Decoder;
 

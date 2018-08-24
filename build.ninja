@@ -7,13 +7,16 @@ rule cc
   deps = gcc
   command = gcc -MMD -MF $out.d -c $cflags $in -o $out
 
+rule aflcc
+  command = afl-gcc -MMD -MF $out.d -c $cflags $in -o $out
+
 rule ld
   command = gcc $in -o $out -lm
-
-rule test
-  command = valgrind --quiet --leak-check=yes $in
 
 build $builddir/rax.o: cc deps/rax.c
 build $builddir/sds.o: cc deps/sds.c
 
 build $builddir/hsdt.o: cc src/hsdt.c
+
+build $builddir/test/fuzz-test.o: aflcc test/fuzz-test.c
+build $builddir/test/fuzz-test: ld $builddir/test/fuzz-test.o $builddir/hsdt.o $builddir/rax.o $builddir/sds.o
