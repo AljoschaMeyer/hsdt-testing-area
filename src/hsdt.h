@@ -47,12 +47,12 @@ typedef struct HSDT_Value {
 /* Return whether the two given values are equal. */
 bool hsdt_value_eq(HSDT_Value a, HSDT_Value b);
 
-/* Frees all heap-allocated data associated with the given value. */
+/* Free all heap-allocated data associated with the given value. */
 void hsdt_value_free(HSDT_Value val);
 
 /* Errors that can occur during decoding of an encoded value. */
 typedef enum {
-  HSDT_ERR_NONE, /* No decoding error occured */
+  HSDT_ERR_NONE, /* No error occured */
   HSDT_ERR_EOF, /* Input ended even though parsing has not been completed */
   HSDT_UNKNOWN_TAG, /* Encountered an unassigned tag byte value */
   HSDT_ERR_UTF8, /* An utf8 string conains invalid data */
@@ -63,17 +63,54 @@ typedef enum {
   HSDT_ERR_CANONIC_ORDER /* The keys of a map are not sorted correctly */
 } HSDT_ERR;
 
-/* Parse an encoded value into an HSDT_Value.
- *
- * Reads at most `in_len` many bytes from `in` nd decodes them. If this returns
- * `HSDT_ERR_NONE`, `out` now contains all necessary data. Else, the content of
- * `out` is unspecified, but it is not necessary to call `hsdt_value_free` on it.
- *
- *  In any case, `consumed` is set to the number of bytes that were read.
+/*
+ * A stateful encoder, which emits as may bytes as possible into a given buffer,
+ * and can later be given another buffer to emit more of the bytes.
  */
-HSDT_ERR decode(unsigned char *in, size_t in_len, HSDT_Value *out, size_t *consumed);
+typedef struct HSDT_Encoder {
+  bool TODO;
+} HSDT_Encoder;
 
-/* Creates and returns an sds string holding the canonical encoding of the given value. */
-sds encode(HSDT_Value in);
+/* Initializes the encoder `enc` to start encoding the given `val`. */
+void hsdt_encoder_init(HSDT_Encoder *enc, HSDT_Value val);
+
+/*
+ * Use an encoder `enc` to write as many bytes as possible into the given `buf`,
+ * but not more than `buf_len`.
+ *
+ * Returns how many bytes have been written. Returning 0 signals that the value
+ * has been fully encoded.
+ *
+ * This may only be called on an encoder on which `hsdt_encoder_init` has been
+ * called before. After this has returned 0, the encoder can be reused by
+ * calling `hsdt_encoder_begin` on it again.
+ */
+size_t hsdt_encode(HSDT_Encoder *enc, uint8_t *buf, size_t buf_len);
+
+/*
+ * A stateful decoder, which accepts partial input and can later be invoked with
+ * the remaning input.
+ */
+typedef struct HSDT_Decoder {
+  bool TODO;
+} HSDT_Decoder;
+
+/* Initializes (or resets) the decoder `dec`. Must be called once before any decoding. */
+void hsdt_decoder_reset(HSDT_Decoder *dec);
+
+/*
+ * Use a decoder `dec` to read data from `buf` (at most `buf_len` many bytes),
+ * and initialize `val` according to the read data.
+ *
+ * Returns an error code, or `HSDT_ERR_NONE` if no error occured. Sets `consumed`
+ * to the number of bytes that have been read.
+ *
+ * A single call to this might not decode the full value, the input data might
+ * have been incomplete. In these cases, `HSDT_ERR_NONE` is returned and
+ * `consumed` is set to a nonzero value (unless `buf_len` has been zero).
+ * Finished decoding is signalled by returning `HSDT_ERR_NONE` and setting
+ * `consumed` to zero.
+ */
+HSDT_ERR hsdt_decode(HSDT_Decoder *dec, HSDT_Value *val, size_t *consumed, const uint8_t *buf, size_t buf_len);
 
 #endif
