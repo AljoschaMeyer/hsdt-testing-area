@@ -19,51 +19,31 @@ int main(int argc, char *argv[])  {
   if (argc != 2) {
     abort();
   } else {
+    /* https://stackoverflow.com/a/14002993 */
     FILE *f = fopen(argv[1], "rb");
     fseek(f, 0, SEEK_END);
-    size_t fsize = ftell(f);
+    size_t input_size = ftell(f);
     fseek(f, 0, SEEK_SET);
-
-    uint8_t *string = malloc(fsize);
-    fread(string, fsize, 1, f);
+    uint8_t *input = malloc(input_size);
+    fread(input, input_size, 1, f);
     fclose(f);
 
-    HSDT_Decoder dec;
     HSDT_Value decoded;
     size_t consumed;
-    size_t total_consumed = 0;
 
-    hsdt_decoder_reset(&dec);
+    if (hsdt_decode(input, input_size, &decoded, &consumed) == HSDT_ERR_NONE) {
+      size_t encoded_len;
+      uint8_t *encoded = hsdt_encode(decoded, &encoded_len);
+      assert(encoded_len == consumed);
+      assert(memcmp(input, encoded, consumed) == 0);
 
-    while (hsdt_decode(&dec, &decoded, &consumed, string + total_consumed, fsize - total_consumed) == HSDT_ERR_NONE) {
-      total_consumed += consumed;
-
-      if (total_consumed >= fsize) {
-        return 0; /* Input is a prefix of a valid hsdt value */
-      }
-
-      if (consumed == 0) { /* done decoding */
-        HSDT_Encoder enc;
-        uint8_t *reencoded = malloc(total_consumed);
-        size_t total_encoded = 0;
-
-        hsdt_encoder_init(&enc, decoded);
-
-        while (true) {
-          assert(total_consumed - total_encoded > 0);
-          size_t encoded = hsdt_encode(&enc, reencoded + total_encoded, total_consumed - total_encoded);
-          total_encoded += encoded;
-
-          if (encoded == 0) { /* done encoding */
-            assert(memcpy(string, reencoded, total_consumed) == 0);
-          }
-        }
-
-      }
+      free(input);
+      free(encoded);
+      hsdt_value_free(decoded);
+      return 0;
+    } else {
+      free(input);
+      return 0;
     }
-
-    return 0; /* Input file did not contain valid hsdt */
-
-    // TODO parse, do stuff
   }
 }

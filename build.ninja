@@ -13,6 +13,9 @@ rule aflcc
 rule ld
   command = gcc $in -o $out -lm
 
+rule test
+  command = valgrind --quiet --leak-check=yes $in
+
 build $builddir/rax.o: cc deps/rax.c
 build $builddir/sds.o: cc deps/sds.c
 
@@ -20,3 +23,12 @@ build $builddir/hsdt.o: cc src/hsdt.c
 
 build $builddir/test/fuzz-test.o: aflcc test/fuzz-test.c
 build $builddir/test/fuzz-test: ld $builddir/test/fuzz-test.o $builddir/hsdt.o $builddir/rax.o $builddir/sds.o
+
+build $builddir/test/fuzz-test-uninstrumented.o: cc test/fuzz-test.c
+build $builddir/test/fuzz-test-uninstrumented: ld $builddir/test/fuzz-test-uninstrumented.o $builddir/hsdt.o $builddir/rax.o $builddir/sds.o
+
+build $builddir/test/data-samples.o: cc test/data-samples.c
+build $builddir/test/data-samples: ld $builddir/test/data-samples.o $builddir/hsdt.o $builddir/rax.o $builddir/sds.o
+
+build test_fuzz_seed: test $builddir/test/fuzz-test-uninstrumented fuzzing/testcases/initial
+build test_data_samples: test $builddir/test/data-samples
