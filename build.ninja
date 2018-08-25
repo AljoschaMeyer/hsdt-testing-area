@@ -20,9 +20,10 @@ build $builddir/rax.o: cc deps/rax.c
 build $builddir/sds.o: cc deps/sds.c
 
 build $builddir/hsdt.o: cc src/hsdt.c
+build $builddir/hsdt-instrumented.o: aflcc src/hsdt.c
 
 build $builddir/test/fuzz-test.o: aflcc test/fuzz-test.c
-build $builddir/test/fuzz-test: ld $builddir/test/fuzz-test.o $builddir/hsdt.o $builddir/rax.o $builddir/sds.o
+build $builddir/test/fuzz-test: ld $builddir/test/fuzz-test.o $builddir/hsdt-instrumented.o $builddir/rax.o $builddir/sds.o
 
 build $builddir/test/fuzz-test-uninstrumented.o: cc test/fuzz-test.c
 build $builddir/test/fuzz-test-uninstrumented: ld $builddir/test/fuzz-test-uninstrumented.o $builddir/hsdt.o $builddir/rax.o $builddir/sds.o

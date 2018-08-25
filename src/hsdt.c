@@ -145,7 +145,7 @@ static const uint8_t utf8d[] = {
 };
 
 /* Call with UTF8_ACCEPT as the initial state. */
-uint32_t validate_utf8(uint32_t *state, uint8_t *str, size_t len) {
+static uint32_t validate_utf8(uint32_t *state, uint8_t *str, size_t len) {
    size_t i;
    uint32_t type;
 
@@ -163,7 +163,7 @@ uint32_t validate_utf8(uint32_t *state, uint8_t *str, size_t len) {
 }
 
 /* Return how many bytes are needed to encode the length of a collection of the given size */
-size_t len_enc(size_t size) {
+static size_t len_enc(size_t size) {
   if (size <= 23) {
     return 0;
   } else if (size <= 255) {
@@ -217,6 +217,8 @@ size_t hsdt_encoding_len(HSDT_Value val) {
       raxSeek(&iter, "^", (unsigned char*) "", 0);
 
       while (raxNext(&iter)) {
+        inner_size += len_enc(iter.key_len) + 1;
+        inner_size += iter.key_len;
         inner_size += hsdt_encoding_len(*(HSDT_Value *) iter.data);
       }
 
@@ -228,7 +230,7 @@ size_t hsdt_encoding_len(HSDT_Value val) {
 }
 
 /* Encode `in` into the buffer `buf`, which must be large enough. Return how many bytes were written. */
-size_t do_encode(HSDT_Value in, uint8_t *buf);
+static size_t do_encode(HSDT_Value in, uint8_t *buf);
 
 uint8_t *hsdt_encode(HSDT_Value in, size_t *out_len) {
   size_t enc_len = hsdt_encoding_len(in);
@@ -239,7 +241,7 @@ uint8_t *hsdt_encode(HSDT_Value in, size_t *out_len) {
   return enc;
 }
 
-size_t encode_len(size_t size, uint8_t major, uint8_t *buf) {
+static size_t encode_len(size_t size, uint8_t major, uint8_t *buf) {
   if (size <= 23) {
     buf[0] = major | size;
     return 1;
@@ -273,7 +275,7 @@ size_t encode_len(size_t size, uint8_t major, uint8_t *buf) {
   }
 }
 
-size_t do_encode(HSDT_Value val, uint8_t *buf) {
+static size_t do_encode(HSDT_Value val, uint8_t *buf) {
   size_t col_len;
   size_t len_len;
   size_t total_written;
@@ -338,7 +340,11 @@ size_t do_encode(HSDT_Value val, uint8_t *buf) {
       raxStart(&iter, val.map);
       raxSeek(&iter, "^", (unsigned char*) "", 0);
       while (raxNext(&iter)) {
-        total_written += encode_utf8 // TODO
+        /* handle key */
+        total_written += encode_len(iter.key_len, 0x60, buf + total_written);
+        memcpy(buf + total_written, iter.key, iter.key_len);
+        total_written += iter.key_len;
+        /* handle value */
         total_written += do_encode(*(HSDT_Value *) iter.data, buf + total_written);
       }
 
@@ -349,7 +355,7 @@ size_t do_encode(HSDT_Value val, uint8_t *buf) {
   }
 }
 
-HSDT_ERR do_decode(uint8_t *in, size_t in_len, HSDT_Value *out, size_t *consumed);
+static HSDT_ERR do_decode(uint8_t *in, size_t in_len, HSDT_Value *out, size_t *consumed);
 
 HSDT_ERR hsdt_decode(uint8_t *in, size_t in_len, HSDT_Value *out, size_t *consumed) {
   *consumed = 0;
@@ -362,7 +368,7 @@ HSDT_ERR hsdt_decode(uint8_t *in, size_t in_len, HSDT_Value *out, size_t *consum
  * it read. Sets `major`, `additional` to the tag values, and `val` to the length
  * data.
  */
-HSDT_ERR tag_and_val(uint8_t *in, size_t in_len, size_t *consumed, uint8_t *major, uint8_t *additional, uint64_t *val) {
+static HSDT_ERR tag_and_val(uint8_t *in, size_t in_len, size_t *consumed, uint8_t *major, uint8_t *additional, uint64_t *val) {
   *major = in[0] >> 5;
   *additional = in[0] & 0x1F;
 
@@ -434,7 +440,7 @@ HSDT_ERR tag_and_val(uint8_t *in, size_t in_len, size_t *consumed, uint8_t *majo
 }
 
 /* Return `true` iff if the first string is lexicogrpahically strictly greater than the second string */
-bool is_lexicographically_greater(uint8_t *s1, size_t len1, uint8_t *s2, size_t len2) {
+static bool is_lexicographically_greater(uint8_t *s1, size_t len1, uint8_t *s2, size_t len2) {
   if (len1 > 0 && len2 > 0) {
     if (s1[0] < s2[0]) {
       return false;
@@ -448,19 +454,7 @@ bool is_lexicographically_greater(uint8_t *s1, size_t len1, uint8_t *s2, size_t 
   }
 }
 
-/*
-#include <stdio.h>
-static void print_buf(void *mem, int size) {
-  int i;
-  unsigned char *p = (unsigned char *)mem;
-  for (i=0;i<size;i++) {
-    printf("%X ", p[i]);
-  }
-  printf("\n\n");
-}
-*/
-
-HSDT_ERR do_decode(uint8_t *in, size_t in_len, HSDT_Value *out, size_t *consumed) {
+static HSDT_ERR do_decode(uint8_t *in, size_t in_len, HSDT_Value *out, size_t *consumed) {
   if (in_len == 0) {
     return HSDT_ERR_EOF;
   } else {
@@ -500,7 +494,13 @@ HSDT_ERR do_decode(uint8_t *in, size_t in_len, HSDT_Value *out, size_t *consumed
       uint8_t major;
       uint8_t additional;
       uint64_t val;
-      tag_and_val(in, in_len, consumed, &major, &additional, &val);
+      HSDT_ERR err;
+      size_t tag_and_val_consumed = 0;
+      err = tag_and_val(in, in_len, &tag_and_val_consumed, &major, &additional, &val);
+      *consumed += tag_and_val_consumed;
+      if (err != HSDT_ERR_NONE) {
+        return err;
+      }
 
       uint32_t utf8_state;
       uint8_t *last_key = NULL;
@@ -512,7 +512,7 @@ HSDT_ERR do_decode(uint8_t *in, size_t in_len, HSDT_Value *out, size_t *consumed
           } else {
             *consumed += val;
             out->tag = HSDT_BYTE_STRING;
-            out->byte_string = sdsnewlen(in + 1, val);
+            out->byte_string = sdsnewlen(in + tag_and_val_consumed, val);
             return HSDT_ERR_NONE;
           }
         case 3:
@@ -521,16 +521,25 @@ HSDT_ERR do_decode(uint8_t *in, size_t in_len, HSDT_Value *out, size_t *consumed
           } else {
             *consumed += val;
             out->tag = HSDT_UTF8_STRING;
-            out->utf8_string = sdsnewlen(in + 1, val);
+            out->utf8_string = sdsnewlen(in + tag_and_val_consumed, val);
 
             utf8_state = UTF8_ACCEPT;
-            if (validate_utf8(&utf8_state, in + 1, val) == UTF8_ACCEPT) {
+            if (validate_utf8(&utf8_state, in + tag_and_val_consumed, val) == UTF8_ACCEPT) {
               return HSDT_ERR_NONE;
             } else {
               return HSDT_ERR_UTF8;
             }
           }
         case 4:
+          if (in_len - *consumed < val) {
+            /*
+             * This is not a precise check to ensure that there is enough data.
+             * But it protects against malicious payloads causing large memory
+             * allocations.
+             */
+            return HSDT_ERR_EOF;
+          }
+
           out->tag = HSDT_ARRAY;
           out->array.len = val;
           out->array.elems = malloc(val * sizeof(HSDT_Value));
@@ -540,6 +549,7 @@ HSDT_ERR do_decode(uint8_t *in, size_t in_len, HSDT_Value *out, size_t *consumed
             HSDT_ERR e = do_decode(in + *consumed, in_len - *consumed, out->array.elems + i, &inner_consumed);
             *consumed += inner_consumed;
             if (e != HSDT_ERR_NONE) {
+              out->array.len = i;
               return e;
             }
           }
@@ -555,7 +565,11 @@ HSDT_ERR do_decode(uint8_t *in, size_t in_len, HSDT_Value *out, size_t *consumed
             uint8_t key_additional;
             uint64_t key_val;
             size_t inner_consumed = 0;
-            tag_and_val(in + *consumed, in_len - *consumed, &inner_consumed, &key_major, &key_additional, &key_val);
+            HSDT_ERR err;
+            err = tag_and_val(in + *consumed, in_len - *consumed, &inner_consumed, &key_major, &key_additional, &key_val);
+            if (err != HSDT_ERR_NONE) {
+              return err;
+            }
             *consumed += inner_consumed;
 
             if (key_major != 3) {
@@ -573,7 +587,7 @@ HSDT_ERR do_decode(uint8_t *in, size_t in_len, HSDT_Value *out, size_t *consumed
             }
 
             HSDT_Value *map_val = malloc(sizeof(HSDT_Value));
-            raxInsert(out->map, in + *consumed, key_val, (void *) map_val, NULL);
+            size_t key_consumed = *consumed;
             last_key = in + *consumed;
             last_key_len = key_val;
             *consumed += key_val;
@@ -585,6 +599,8 @@ HSDT_ERR do_decode(uint8_t *in, size_t in_len, HSDT_Value *out, size_t *consumed
             if (e != HSDT_ERR_NONE) {
               return e;
             }
+
+            raxInsert(out->map, in + key_consumed, key_val, (void *) map_val, NULL);
           }
 
           return HSDT_ERR_NONE;
