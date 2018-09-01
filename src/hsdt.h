@@ -50,9 +50,14 @@ bool hsdt_value_eq(HSDT_Value a, HSDT_Value b);
 /* Free all heap-allocated data associated with the given value. */
 void hsdt_value_free(HSDT_Value val);
 
+/*
+ * The implementation currently crashes when out of memory!
+ */
+
 /* Errors that can occur during decoding of an encoded value. */
 typedef enum {
   HSDT_ERR_NONE, /* No error occured */
+  HSDT_ERR_OOM, /* The decoder ran out of memory. The input is guaranteed to have been valid up to that point. */
   HSDT_ERR_EOF, /* Input ended even though parsing has not been completed */
   HSDT_ERR_TAG, /* Encountered an invalid tag byte value */
   HSDT_ERR_UTF8, /* An utf8 string conains invalid data */
@@ -61,6 +66,24 @@ typedef enum {
   HSDT_ERR_CANONIC_ORDER, /* The keys of a map are not sorted correctly */
   HSDT_ERR_CANONIC_LENGTH /* The length of a collection or array is not given in the canonical format */
 } HSDT_ERR;
+
+#ifdef COLLECTION_SIZE_IN_BYTES
+/*
+ * Decodes enough data from `in` to compute the length of the encoded object in
+ * bytes. Since this implementation does not support partial decoding, you can
+ * to use this function to ensure that a buffer of sufficient size is passed to
+ * `hsdt_decode`.
+ *
+ * This function returns 0 if and only if `in` does not contain a prefix of a
+ * valid encoded value.
+ *
+ * There may not be enough bytes in `in` to determine the length, in that case
+ * this function returns `SIZE_MAX`. This can only happen if `in_len < 5`.
+ * If `in_len >= 5`, a return value of `SIZE_MAX` actually means that the
+ * encoding consists of `SIZE_MAX` bytes.
+ */
+size_t hsdt_decode_len(uint8_t *in, size_t in_len);
+#endif
 
 /* Parse an encoded value into an HSDT_Value.
  *

@@ -15,6 +15,15 @@
 
 #include "../src/hsdt.h"
 
+// static void print_buf(void *mem, int size) {
+//   int i;
+//   unsigned char *p = (unsigned char *)mem;
+//   for (i=0;i<size;i++) {
+//     printf("%X ", p[i]);
+//   }
+//   printf("\n\n");
+// }
+
 int main(int argc, char *argv[])  {
   if (argc != 2) {
     abort();
@@ -32,9 +41,17 @@ int main(int argc, char *argv[])  {
     size_t consumed;
 
     if (hsdt_decode(input, input_size, &decoded, &consumed) == HSDT_ERR_NONE) {
+      #ifdef COLLECTION_SIZE_IN_BYTES
+      assert(hsdt_decode_len(input, input_size) == consumed);
+      #endif
       size_t encoded_len;
       uint8_t *encoded = hsdt_encode(decoded, &encoded_len);
       assert(encoded_len == consumed);
+
+      // print_buf(input, consumed);
+      // print_buf(encoded, consumed);
+      // printf("%zu\n", consumed);
+
       assert(memcmp(input, encoded, consumed) == 0);
 
       free(input);

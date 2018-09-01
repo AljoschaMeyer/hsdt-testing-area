@@ -10,6 +10,15 @@
 
 #include "../src/hsdt.h"
 
+// static void print_buf(void *mem, int size) {
+//   int i;
+//   unsigned char *p = (unsigned char *)mem;
+//   for (i=0;i<size;i++) {
+//     printf("%X ", p[i]);
+//   }
+//   printf("\n\n");
+// }
+
 static void check(char *hex_input, HSDT_Value expected) {
   /* Convert input string (hex encoded, null-delimited) into binary data. */
   size_t hex_len = strlen(hex_input);
@@ -24,6 +33,10 @@ static void check(char *hex_input, HSDT_Value expected) {
   HSDT_Value actual;
   size_t consumed;
 
+  #ifdef COLLECTION_SIZE_IN_BYTES
+  assert(hsdt_decode_len(valid_bytes, valid_bytes_len) == valid_bytes_len);
+  #endif
+  
   assert(hsdt_decode(valid_bytes, valid_bytes_len, &actual, &consumed) == HSDT_ERR_NONE);
   assert(consumed == valid_bytes_len);
   assert(hsdt_value_eq(actual, expected));
@@ -58,7 +71,6 @@ static void reject(char *hex_input, HSDT_ERR expected_err) {
   size_t consumed;
   assert(hsdt_decode(valid_bytes, valid_bytes_len, &val, &consumed) == expected_err);
 
-  hsdt_value_free(val);
   free(valid_bytes);
 }
 
